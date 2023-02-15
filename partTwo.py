@@ -47,16 +47,20 @@ for i in range(len(studentChoices)):
 for i in range(len(supervisors)):
     supervisors[i][1] = int(supervisors[i][1])
 
+# ensure reproducible results
+random.seed(0)
+
 numStudents = len(studentChoices)
 numSupervisors = len(supervisors)
+numRuns = 1000
 numAllocations = 6
 fitness = [0 for i in range(numAllocations)]
 allocations = [[0 for i in range(numStudents)] for j in range(numSupervisors)]
 bestAllocation = []
-bestAllocationFitness = 1000
+bestAllocationFitness = 0
 fittestAllocations = [0, 0, 0, 0, 0]
 rand = 0
-averagePreference = []
+averageFitness = []
 
 
 for i in range(numAllocations):
@@ -73,31 +77,30 @@ for i in range(numAllocations):
 
 for i in range(numAllocations):
     for j in range(len(allocations[i])):
-        fitness[i] += get_preference(j, allocations[i][j])
+        fitness[i] += numSupervisors - get_preference(j, allocations[i][j])
 
-for i in range(5000):
+for i in range(numRuns):
     fitnessCopy = fitness.copy()
 
     for j in range(3):
-        fittest = min(fitnessCopy)
+        fittest = max(fitnessCopy)
         fittestIndex = fitnessCopy.index(fittest)
         fittestAllocations[j] = allocations[fittestIndex]
-        fitnessCopy[fittestIndex] = 1000
-        if fittest < bestAllocationFitness:
+        fitnessCopy[fittestIndex] = 0
+        if fittest > bestAllocationFitness:
             bestAllocationFitness = fittest
             bestAllocation = allocations[fittestIndex]
 
+    # use one-point crossover to generate children for next generation
     for j in range(3):
         rand = random.randint(0, numStudents-1)
-        allocations[0] = fittestAllocations[0][0:rand] + fittestAllocations[1][rand:46]
-        allocations[1] = fittestAllocations[0][0:rand] + fittestAllocations[2][rand:46]
-        allocations[2] = fittestAllocations[1][0:rand] + fittestAllocations[0][rand:46]
-        allocations[3] = fittestAllocations[1][0:rand] + fittestAllocations[2][rand:46]
-        allocations[4] = fittestAllocations[2][0:rand] + fittestAllocations[0][rand:46]
-        allocations[5] = fittestAllocations[2][0:rand] + fittestAllocations[1][rand:46]
+        allocations[j*2] = fittestAllocations[0][0:rand] + fittestAllocations[(i+1) % 3][rand:46]
+        allocations[j*2+1] = fittestAllocations[0][0:rand] + fittestAllocations[(i+1) % 3][rand:46]
 
     for j in range(numAllocations):
         for k in range(numStudents):
+            # 3/100 chance for mutation, in this case I randomly swapped them with another students supervisor
+            # as to prevent capacity being exceeded
             rand = random.randint(0, 100)
             if rand < 3:
                 temp = allocations[j][k]
@@ -109,14 +112,22 @@ for i in range(5000):
         check_after_crossover(allocations[j], j)
         fitness[j] = 0
         for k in range(numStudents):
-            fitness[j] += get_preference(k, allocations[j][k])
+            fitness[j] += numSupervisors - get_preference(k, allocations[j][k])
 
-    averagePreference.append(mean(fitness)/numStudents)
+    averageFitness.append(mean(fitness)/numStudents)
 
-print(fitness)
 print(bestAllocation)
-print(bestAllocationFitness)
 print(bestAllocationFitness/numStudents)
+print(numSupervisors - bestAllocationFitness/numStudents)
+
+plt.plot(averageFitness)
+plt.ylabel('Average Fitness')
+plt.xlabel('Generations')
+plt.show()
+
+averagePreference = []
+for i in range(numRuns):
+    averagePreference.append(numSupervisors - averageFitness[i])
 
 plt.plot(averagePreference)
 plt.ylabel('Average preference allocated to student')
